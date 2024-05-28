@@ -1,0 +1,59 @@
+CREATE VIEW AssignCourseWithTeacher AS
+SELECT dept.*,teacher.TeacherId,teacher.TeacherName,teacher.TeacherCredit,course.CourseId,CourseCode,course.CourseName,course.CourseCredit
+From Department_tbl as dept
+LEFT JOIN Teacher_tbl as teacher ON teacher.Dept_Id = dept.DepartmentId
+Left JOIN Course_tbl as course ON course.Dept_Id = dept.DepartmentId
+
+//================== GROUP BY FORMET TABLE ==================
+CREATE VIEW ViewCourseAssignInfo AS
+SELECT MAX(dept.DepartmentId) as DepartmentId,MAX(dept.DepartmentName) as DepartmentName,MAX(teacher.TeacherId) as TeacherId,MAX(teacher.TeacherName) as TeacherName,course.CourseId,MAX(course.CourseCode)as CourseCode,MAX(course.CourseName) as CourseName,MAX(assign.AssignCourseStatus) as AssignCourseStatus,MAX(sem.SemesterName) as SemesterName
+From Department_tbl as dept
+Left JOIN Course_tbl as course ON course.Dept_Id = dept.DepartmentId
+LEFT JOIN CourseAssign_tbl as assign ON assign.AssignCourseId = course.CourseId
+LEFT JOIN Teacher_tbl as teacher ON teacher.TeacherId = assign.AssignTeacherId
+Left JOIN Semester_tbl as sem ON sem.SemesterId = course.Sem_Id
+GROUP BY course.CourseId
+
+
+//===============Match ID And Concat multiple row value Group by Ids..=======
+CREATE VIEW ViewEnrollCourse_Student AS
+SELECT dept.DepartmentId,dept.DepartmentName,t1.StudentRegNo,stu.StudentName,CourseIds=STUFF( (SELECT DISTINCT ', '+ CAST(course.CourseName AS VARCHAR(MAX)) FROM Course_tbl course,EnrollCourse_table enroll WHERE course.CourseId=enroll.EnrollCourseId and enroll.StudentRegNo=t1.StudentRegNo FOR XMl PATH('') ),1,1,'' ) FROM EnrollCourse_table t1 
+LEFT JOIN Student_tbl as stu ON stu.RegistrationNumber = t1.StudentRegNo
+LEFT JOIN Department_tbl as dept ON dept.DepartmentId = stu.Dept_Id
+GROUP BY dept.DepartmentId,dept.DepartmentName,t1.StudentRegNo,stu.StudentName
+
+
+//------Concate multiple column in one colum============
+
+CREATE VIEW ViewAllocateRoom AS
+SELECT course.CourseId,course.CourseCode,course.CourseName,dept.DepartmentId,dept.DepartmentName,'R. No: '+room.RoomNo+', '+daytbl.DayName+', '+allocate.TimeFrom+' - '+allocate.TimeTo as timetable
+From AllocateRoom_tbl as allocate
+LEFT JOIN Department_tbl as dept ON dept.DepartmentId = allocate.Dept_Id
+Left JOIN Course_tbl as course ON course.CourseId = allocate.Course_Id
+Left JOIN Room_tbl as room ON room.RoomId = allocate.RoomNo_Id
+Left JOIN Day_tbl as daytbl ON daytbl.DId = allocate.DayId
+
+
+
+//================== 
+SELECT CourseId,CourseCode,CourseName,timeschedule=STUFF((SELECT DISTINCT ' || ' + CAST(timetable AS VARCHAR(MAX)) FROM ViewAllocateRoom t2 WHERE t2.CourseId = t1.CourseId FOR XML PATH('') ),1,1,'' ) FROM ViewAllocateRoom t1 GROUP BY CourseId,CourseCode,CourseName
+
+
+
+//===============Contact Multipple column with join query===============
+CREATE VIEW ViewAllocateRoomWithCourse AS
+SELECT course.CourseId,course.CourseCode,course.CourseName,dept.DepartmentId,dept.DepartmentName,allocate.AllocationStatus,
+timeschedule=STUFF((SELECT DISTINCT ' || ' + CAST('R. No: '+room.RoomNo+', '+daytbl.DayName+', '+allocate.TimeFrom+' - '+allocate.TimeTo AS VARCHAR(MAX)) FROM Course_tbl course, AllocateRoom_tbl t2 WHERE course.CourseId = allocate.Course_Id FOR XML PATH('') ),1,1,'' ) FROM Course_tbl course
+Left JOIN AllocateRoom_tbl as allocate ON allocate.Course_Id = course.CourseId
+LEFT JOIN Department_tbl as dept ON dept.DepartmentId = course.Dept_Id
+Left JOIN Room_tbl as room ON room.RoomId = allocate.RoomNo_Id
+Left JOIN Day_tbl as daytbl ON daytbl.DId = allocate.DayId
+
+//-----------==== Concat multiple column && formating 24 hour time to 12 hour time=========--------------
+CREATE VIEW ViewAllocateRoomWithCourse AS
+SELECT course.CourseId,course.CourseCode,course.CourseName,dept.DepartmentId,dept.DepartmentName,allocate.AllocationStatus,
+timeschedule=STUFF((SELECT DISTINCT ' || ' + CAST('R. No: '+room.RoomNo+', '+daytbl.DayName+', '+CONVERT(varchar(15),  CAST(allocate.TimeFrom AS TIME), 100)+' - '+CONVERT(varchar(15),  CAST(allocate.TimeTo AS TIME), 100) AS VARCHAR(MAX)) FROM Course_tbl course, AllocateRoom_tbl t2 WHERE course.CourseId = allocate.Course_Id FOR XML PATH('') ),1,1,'' ) FROM Course_tbl course
+Left JOIN AllocateRoom_tbl as allocate ON allocate.Course_Id = course.CourseId
+LEFT JOIN Department_tbl as dept ON dept.DepartmentId = course.Dept_Id
+Left JOIN Room_tbl as room ON room.RoomId = allocate.RoomNo_Id
+Left JOIN Day_tbl as daytbl ON daytbl.DId = allocate.DayId
